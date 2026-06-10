@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "setreplace"
-version = "0.1.0"
+version = "0.2.0"
 description = "Wolfram models in Python: SetReplace-exact hypergraph substitution and HypergraphPlot-style rendering, powered by Rust"
 readme = "README.md"
 requires-python = ">=3.9"
