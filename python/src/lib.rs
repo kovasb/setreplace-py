@@ -538,6 +538,57 @@ fn evolve(
     Ok(system)
 }
 
+/// All inequivalent rules of a signature, replicating the Wolfram Physics
+/// Project's EnumerateWolframModelRules (canonical forms, same order).
+/// Signature sides are (count, arity) pairs: 2 binary edges -> 3 binary
+/// edges is `enumerate_rules([(2, 2)], [(3, 2)])`.
+#[pyfunction]
+#[pyo3(signature = (inputs, outputs, *, connectivity="Automatic", max_elements=None))]
+fn enumerate_rules(
+    py: Python<'_>,
+    inputs: Vec<Vec<usize>>,
+    outputs: Vec<Vec<usize>>,
+    connectivity: &str,
+    max_elements: Option<usize>,
+) -> PyResult<Vec<Rule>> {
+    fn groups(side: Vec<Vec<usize>>) -> PyResult<Vec<(usize, usize)>> {
+        side.into_iter()
+            .map(|g| {
+                if g.len() == 2 {
+                    Ok((g[0], g[1]))
+                } else {
+                    Err(PyValueError::new_err(
+                        "signature sides must be lists of (count, arity) pairs, \
+                         e.g. enumerate_rules([(2, 2)], [(3, 2)])",
+                    ))
+                }
+            })
+            .collect()
+    }
+    let connectivity = match connectivity {
+        "Automatic" => engine::Connectivity::LeftConnected,
+        "None" => engine::Connectivity::None,
+        "All" => engine::Connectivity::All,
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "unknown connectivity `{other}`; valid: Automatic, None, All"
+            )))
+        }
+    };
+    let signature = engine::RuleSignature {
+        inputs: groups(inputs)?,
+        outputs: groups(outputs)?,
+    };
+    let options = engine::EnumerationOptions {
+        connectivity,
+        max_elements,
+    };
+    let rules = py
+        .allow_threads(|| engine::enumerate_rules(&signature, &options))
+        .map_err(engine_err)?;
+    Ok(rules.into_iter().map(|inner| Rule { inner }).collect())
+}
+
 /// SetReplace[state, rules, events]: applies up to `events` substitution
 /// events and returns the resulting state.
 #[pyfunction]
@@ -604,6 +655,7 @@ fn setreplace(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(plot, m)?)?;
     m.add_function(wrap_pyfunction!(layout, m)?)?;
     m.add_function(wrap_pyfunction!(evolve, m)?)?;
+    m.add_function(wrap_pyfunction!(enumerate_rules, m)?)?;
     m.add_function(wrap_pyfunction!(set_replace, m)?)?;
     m.add_function(wrap_pyfunction!(set_replace_list, m)?)?;
     m.add_function(wrap_pyfunction!(set_replace_all, m)?)?;

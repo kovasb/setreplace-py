@@ -33,12 +33,16 @@
 //! the exact scope, conventions, and the few deliberate deviations.
 
 mod atoms_index;
+mod enumerate;
 mod error;
 mod matcher;
 mod pcg;
 mod rule;
 mod system;
 
+pub use enumerate::{
+    canonical_integer_form, enumerate_rules, Connectivity, EnumerationOptions, RuleSignature,
+};
 pub use error::Error;
 pub use matcher::{default_event_ordering, OrderingFunction};
 pub use rule::{parse_state, Atom, Rule};

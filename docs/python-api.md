@@ -237,3 +237,23 @@ pos = sr.layout(system.final_state, seed=1)
    abi3 keeps it to one wheel per platform.
 3. Later, when multiway lands in the engine, `evolve()` gains kwargs rather
    than new entry points — worth keeping in mind when naming things now.
+
+## Added after v0.1.0: rule enumeration
+
+```python
+def enumerate_rules(inputs, outputs, *, connectivity="Automatic",
+                    max_elements=None) -> list[Rule]: ...
+```
+
+Replicates the Wolfram Physics Project's `EnumerateWolframModelRules`
+exactly — same canonical forms, same order — so indices interoperate with
+the registry and the literature. Signature sides are `(count, arity)` pairs;
+`connectivity` is `"Automatic"` (left side connected and rule connected),
+`"All"`, or `"None"`. Verified against captured ground truth: the complete
+11-rule (1_2 -> 1_2) and 562-rule (2_2 -> 2_2) lists element-by-element, and
+the published 40,405 count for 2_2 -> 4_2.
+
+```python
+rules = sr.enumerate_rules([(2, 2)], [(2, 2)])     # 562 rules, registry order
+sr.evolve(rules[101], [[1, 1], [1, 1]], events=500).plot()
+```

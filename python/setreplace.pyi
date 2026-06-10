@@ -113,6 +113,17 @@ def evolve(
     event_ordering: list[str] | None = None,
     random_seed: int = 0,
 ) -> HypergraphSystem: ...
+def enumerate_rules(
+    inputs: list[tuple[int, int]] | list[list[int]],
+    outputs: list[tuple[int, int]] | list[list[int]],
+    *,
+    connectivity: str = "Automatic",
+    max_elements: int | None = None,
+) -> list[Rule]:
+    """All inequivalent rules of a signature ((count, arity) pairs per side),
+    replicating EnumerateWolframModelRules: same canonical forms, same order.
+    connectivity: "Automatic" (LHS connected, rule connected), "All", "None"."""
+
 def set_replace(state: list[list[int]], rules: Rules, events: int = 1) -> list[list[int]]: ...
 def set_replace_list(
     state: list[list[int]], rules: Rules, events: int

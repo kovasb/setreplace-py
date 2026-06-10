@@ -123,6 +123,7 @@ what lets meshes and fractals unfold instead of freezing into hairballs.
 | `"AllEventsList"` / `"AllExpressions"` | `system.events()` / `system.tokens()` |
 | `"CausalGraph"` / `"LayeredCausalGraph"` | `system.causal_graph_edges()` / `.causal_graph_plot()` |
 | `HypergraphPlot[state, VertexLabels -> Automatic]` | `sr.plot(state, labels=True)` |
+| `EnumerateWolframModelRules[{{2, 2}} -> {{3, 2}}]` | `sr.enumerate_rules([(2, 2)], [(3, 2)])` |
 
 Rules can be strings (as above), structured
 (`sr.Rule([["x", "y"]], [["x", "y"], ["y", "z"]])` — strings are variables,

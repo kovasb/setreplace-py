@@ -173,6 +173,23 @@ def test_determinism_and_seeds():
     assert [e.inputs for e in a.events()] == [e.inputs for e in b.events()]
 
 
+def test_enumerate_rules():
+    rules = sr.enumerate_rules([(1, 2)], [(1, 2)])
+    assert len(rules) == 11
+    assert rules[0].inputs == [[-1, -1]] and rules[0].outputs == [[-1, -1]]
+    assert len(sr.enumerate_rules([(1, 2)], [(1, 2)], max_elements=2)) == 7
+    assert len(sr.enumerate_rules([(2, 2)], [(2, 2)])) == 562
+    assert len(sr.enumerate_rules([(1, 2)], [(2, 2)], connectivity="None")) > 73
+    # Enumerated rules plug straight into evolution.
+    system = sr.evolve(rules[10], [[1, 2]], events=5)
+    assert system.events_count == 5
+    try:
+        sr.enumerate_rules([(1, 2)], [(1, 2)], connectivity="Bogus")
+        raise AssertionError("expected ValueError")
+    except ValueError as e:
+        assert "Bogus" in str(e)
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
