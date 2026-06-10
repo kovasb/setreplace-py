@@ -5,14 +5,15 @@ semantics of Wolfram's [SetReplace](https://github.com/maxitg/SetReplace),
 plus `HypergraphPlot`-style rendering, powered by a Rust engine. No Wolfram
 Language license, no graphviz, no native dependencies to install.
 
-<img src="https://raw.githubusercontent.com/kovasb/setreplace-py/main/docs/images/showcase/sierpinski_fractal.png" width="440"
-     alt="Self-similar structure after 7 generations of a one-line rule">
+<img src="https://raw.githubusercontent.com/kovasb/setreplace-py/main/docs/images/showcase/announcement_web.png" width="500"
+     alt="1500 events of the Wolfram Physics Project announcement's rule">
 
 ```python
 import setreplace as sr
 
-system = sr.evolve("{{x, y, z}} -> {{x, d, f}, {y, e, d}, {z, f, e}}",
-                   [[1, 1, 1]], generations=7)
+# The rule from the Wolfram Physics Project announcement
+system = sr.evolve("{{x, y}, {x, z}} -> {{x, z}, {x, w}, {y, w}, {z, w}}",
+                   [[1, 2], [2, 3], [3, 4], [2, 4]], events=1500)
 system.plot()        # ↑ renders inline in Jupyter
 ```
 

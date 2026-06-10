@@ -5,14 +5,15 @@ semantics of Wolfram's [SetReplace](https://github.com/maxitg/SetReplace),
 plus `HypergraphPlot`-style rendering, powered by a Rust engine. No Wolfram
 Language license, no graphviz, no native dependencies to install.
 
-<img src="docs/images/showcase/sierpinski_fractal.png" width="440"
-     alt="Self-similar structure from {{x,y,z}} -> {{x,d,f},{y,e,d},{z,f,e}} after 7 generations">
+<img src="docs/images/showcase/announcement_web.png" width="500"
+     alt="1500 events of the Wolfram Physics Project announcement's rule {{x,y},{x,z}} -> {{x,z},{x,w},{y,w},{z,w}}">
 
 ```python
 import setreplace as sr
 
-system = sr.evolve("{{x, y, z}} -> {{x, d, f}, {y, e, d}, {z, f, e}}",
-                   [[1, 1, 1]], generations=7)
+# The rule from the Wolfram Physics Project announcement
+system = sr.evolve("{{x, y}, {x, z}} -> {{x, z}, {x, w}, {y, w}, {z, w}}",
+                   [[1, 2], [2, 3], [3, 4], [2, 4]], events=1500)
 system.plot()        # ↑ renders inline in Jupyter
 ```
 
@@ -81,6 +82,12 @@ post](https://writings.stephenwolfram.com/2020/04/finally-we-may-have-a-path-to-
 run long. Each is one `sr.evolve(...)` plus one `.plot()`; regenerate with
 `cargo run --release -p setreplace-viz --example showcase`.
 
+`"{{x, y, z}} -> {{x, d, f}, {y, e, d}, {z, f, e}}"` — 7 generations from a
+single ternary self-loop: self-similar structure all the way down:
+
+<img src="docs/images/showcase/sierpinski_fractal.png" width="500"
+     alt="Nested self-similar rings from the fractal rule">
+
 `"{{a, b, b}, {c, a, d}} -> {{b, e, b}, {b, c, e}, {d, e, e}}"` — 1000
 events from two self-loops: a regular triangulated net emerges from nothing:
 
@@ -93,12 +100,10 @@ events: a curved lens-shaped mesh:
 <img src="docs/images/showcase/lens_mesh.png" width="500"
      alt="Curved lens-shaped mesh">
 
-The announcement's recurring rule
-`"{{x, y}, {x, z}} -> {{x, z}, {x, w}, {y, w}, {z, w}}"` (1500 events) and
-`"{{a, a, b}, {c, d, a}} -> {{d, d, c}, {e, d, e}, {e, b, a}}"` (2000):
+`"{{a, a, b}, {c, d, a}} -> {{d, d, c}, {e, d, e}, {e, b, a}}"` — 2000
+events: a densely crumpled ball of space:
 
-<img src="docs/images/showcase/announcement_web.png" width="380"
-     alt="Organic web from the announcement's binary rule"> <img src="docs/images/showcase/crumpled_ball.png" width="380"
+<img src="docs/images/showcase/crumpled_ball.png" width="500"
      alt="Densely crumpled ball of space">
 
 Large structured states render in seconds: layout is Yifan Hu's *multilevel*
