@@ -153,7 +153,10 @@ fn max_generations_termination() {
     system.evolve(&StepSpec::generations(3)).unwrap();
     assert_eq!(system.generations_count(), 3);
     assert_eq!(system.events_count(), 7);
-    assert_eq!(system.termination_reason(), TerminationReason::MaxGenerations);
+    assert_eq!(
+        system.termination_reason(),
+        TerminationReason::MaxGenerations
+    );
 }
 
 /// WolframModel.wlt:314-317 — same system with <|"MaxEvents" -> 6|>:
@@ -246,13 +249,18 @@ fn ten_generations() {
 /// consecutive integers starting after the largest named atom.
 #[test]
 fn growth_rule_census() {
-    let mut system =
-        HypergraphSystem::new(vec![rule("{{x, y}} -> {{x, y}, {y, z}}")], state("{{1, 1}}"))
-            .unwrap();
+    let mut system = HypergraphSystem::new(
+        vec![rule("{{x, y}} -> {{x, y}, {y, z}}")],
+        state("{{1, 1}}"),
+    )
+    .unwrap();
     system.evolve(&StepSpec::generations(5)).unwrap();
     assert_eq!(system.events_count(), 31);
     assert_eq!(system.final_state().len(), 32);
-    assert_eq!(system.termination_reason(), TerminationReason::MaxGenerations);
+    assert_eq!(
+        system.termination_reason(),
+        TerminationReason::MaxGenerations
+    );
     assert_eq!(system.tokens().len(), 63);
     // 31 fresh atoms named 2..=32, one per event.
     assert_eq!(system.final_atom_count(), 32);
@@ -275,18 +283,29 @@ fn growth_rule_census() {
 /// Fresh vertices continue from the largest named integer in creation order.
 #[test]
 fn fresh_vertex_naming_matches_wolfram() {
-    let mut system =
-        HypergraphSystem::new(vec![rule("{{x, y}} -> {{x, y}, {y, z}}")], state("{{1, 1}}"))
-            .unwrap();
+    let mut system = HypergraphSystem::new(
+        vec![rule("{{x, y}} -> {{x, y}, {y, z}}")],
+        state("{{1, 1}}"),
+    )
+    .unwrap();
     system.evolve(&StepSpec::generations(2)).unwrap();
     assert_eq!(
         system.final_state(),
         state("{{1, 1}, {1, 3}, {1, 2}, {2, 4}}")
     );
     let events = system.events();
-    assert_eq!((events[1].inputs.clone(), events[1].outputs.clone()), (vec![0], vec![1, 2]));
-    assert_eq!((events[2].inputs.clone(), events[2].outputs.clone()), (vec![1], vec![3, 4]));
-    assert_eq!((events[3].inputs.clone(), events[3].outputs.clone()), (vec![2], vec![5, 6]));
+    assert_eq!(
+        (events[1].inputs.clone(), events[1].outputs.clone()),
+        (vec![0], vec![1, 2])
+    );
+    assert_eq!(
+        (events[2].inputs.clone(), events[2].outputs.clone()),
+        (vec![1], vec![3, 4])
+    );
+    assert_eq!(
+        (events[3].inputs.clone(), events[3].outputs.clone()),
+        (vec![2], vec![5, 6])
+    );
 }
 
 // ------------------------------------------------------- matching semantics
@@ -354,8 +373,7 @@ fn non_positive_atoms_rejected() {
 #[test]
 fn set_replace_all_one_generation() {
     let rules = [rule("{{x, y}, {y, z}} -> {{x, z}}")];
-    let result =
-        set_replace_all(&state("{{1, 2}, {2, 3}, {3, 4}, {4, 5}}"), &rules, 1).unwrap();
+    let result = set_replace_all(&state("{{1, 2}, {2, 3}, {3, 4}, {4, 5}}"), &rules, 1).unwrap();
     assert_eq!(result, state("{{1, 3}, {3, 5}}"));
 }
 
@@ -365,9 +383,11 @@ fn set_replace_all_one_generation() {
 /// make 11 edges is not applied.
 #[test]
 fn max_edges_cap() {
-    let mut system =
-        HypergraphSystem::new(vec![rule("{{x, y}} -> {{x, y}, {y, z}}")], state("{{1, 1}}"))
-            .unwrap();
+    let mut system = HypergraphSystem::new(
+        vec![rule("{{x, y}} -> {{x, y}, {y, z}}")],
+        state("{{1, 1}}"),
+    )
+    .unwrap();
     system
         .evolve(&StepSpec {
             max_edges: Some(10),
@@ -382,9 +402,11 @@ fn max_edges_cap() {
 /// MaxVertices: the growth rule adds one fresh atom per event.
 #[test]
 fn max_vertices_cap() {
-    let mut system =
-        HypergraphSystem::new(vec![rule("{{x, y}} -> {{x, y}, {y, z}}")], state("{{1, 1}}"))
-            .unwrap();
+    let mut system = HypergraphSystem::new(
+        vec![rule("{{x, y}} -> {{x, y}, {y, z}}")],
+        state("{{1, 1}}"),
+    )
+    .unwrap();
     system
         .evolve(&StepSpec {
             max_vertices: Some(5),
@@ -400,9 +422,11 @@ fn max_vertices_cap() {
 /// one per event.
 #[test]
 fn max_vertex_degree_cap() {
-    let mut system =
-        HypergraphSystem::new(vec![rule("{{x, y}} -> {{x, y}, {x, z}}")], state("{{1, 2}}"))
-            .unwrap();
+    let mut system = HypergraphSystem::new(
+        vec![rule("{{x, y}} -> {{x, y}, {x, z}}")],
+        state("{{1, 2}}"),
+    )
+    .unwrap();
     system
         .evolve(&StepSpec {
             max_vertex_degree: Some(4),
@@ -429,7 +453,10 @@ fn resume_with_higher_generation_cap() {
     .unwrap();
     system.evolve(&StepSpec::generations(1)).unwrap();
     assert_eq!(system.events_count(), 2);
-    assert_eq!(system.termination_reason(), TerminationReason::MaxGenerations);
+    assert_eq!(
+        system.termination_reason(),
+        TerminationReason::MaxGenerations
+    );
     assert_eq!(system.final_state(), state("{{1, 3}, {3, 5}}"));
 
     system.evolve(&StepSpec::generations(2)).unwrap();

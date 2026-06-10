@@ -36,8 +36,18 @@ fn run(name: &str, rule_str: &str, init_str: &str, events: u64) {
 
 fn main() {
     // Sparse: single-edge input, bounded degree.
-    run("growth", "{{x, y}} -> {{x, y}, {y, z}}", "{{1, 1}}", 100_000);
-    run("subdivision", "{{x, y}} -> {{x, z}, {z, y}}", "{{1, 2}}", 100_000);
+    run(
+        "growth",
+        "{{x, y}} -> {{x, y}, {y, z}}",
+        "{{1, 1}}",
+        100_000,
+    );
+    run(
+        "subdivision",
+        "{{x, y}} -> {{x, z}, {z, y}}",
+        "{{1, 2}}",
+        100_000,
+    );
     // Two-edge input, sparse outputs.
     run(
         "chain",

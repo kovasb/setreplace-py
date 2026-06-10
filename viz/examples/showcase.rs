@@ -46,7 +46,8 @@ const SYSTEMS: &[Showcase] = &[
     },
     Showcase {
         name: "triangular_net",
-        description: "{{1,2,2},{3,1,4}} -> {{2,5,2},{2,3,5},{4,5,5}}: a regular triangulated net emerges",
+        description:
+            "{{1,2,2},{3,1,4}} -> {{2,5,2},{2,3,5},{4,5,5}}: a regular triangulated net emerges",
         rule: "{{a, b, b}, {c, a, d}} -> {{b, e, b}, {b, c, e}, {d, e, e}}",
         init: "{{1, 1, 1}, {1, 1, 1}}",
         steps: (Some(1000), None),
@@ -64,7 +65,8 @@ const SYSTEMS: &[Showcase] = &[
     },
     Showcase {
         name: "crumpled_ball",
-        description: "{{1,1,2},{3,4,1}} -> {{4,4,3},{5,4,5},{5,2,1}}: a densely crumpled ball of space",
+        description:
+            "{{1,1,2},{3,4,1}} -> {{4,4,3},{5,4,5},{5,2,1}}: a densely crumpled ball of space",
         rule: "{{a, a, b}, {c, d, a}} -> {{d, d, c}, {e, d, e}, {e, b, a}}",
         init: "{{1, 1, 1}, {1, 1, 1}}",
         steps: (Some(2000), None),

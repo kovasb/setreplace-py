@@ -43,8 +43,8 @@ pub use error::Error;
 pub use matcher::{default_event_ordering, OrderingFunction};
 pub use rule::{parse_state, Atom, Rule};
 pub use system::{
-    Event, EventId, EvolutionOptions, Generation, HypergraphSystem, StepSpec,
-    TerminationReason, Token, TokenId,
+    Event, EventId, EvolutionOptions, Generation, HypergraphSystem, StepSpec, TerminationReason,
+    Token, TokenId,
 };
 
 fn evolved(

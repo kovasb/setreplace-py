@@ -325,12 +325,11 @@ impl HypergraphSystem {
         self.index_new_tokens()?;
         let m = match self.matcher.next_match() {
             None => {
-                self.termination_reason =
-                    if self.largest_generation == self.spec.max_generations {
-                        TerminationReason::MaxGenerations
-                    } else {
-                        TerminationReason::FixedPoint
-                    };
+                self.termination_reason = if self.largest_generation == self.spec.max_generations {
+                    TerminationReason::MaxGenerations
+                } else {
+                    TerminationReason::FixedPoint
+                };
                 return Ok(false);
             }
             Some(m) => m,
@@ -348,10 +347,7 @@ impl HypergraphSystem {
 
         // Final-state limits are checked before committing; hitting one
         // leaves the system untouched.
-        for check in [
-            Self::will_exceed_atom_limits,
-            Self::will_exceed_token_limit,
-        ] {
+        for check in [Self::will_exceed_atom_limits, Self::will_exceed_token_limit] {
             let status = check(self, &explicit_inputs, &explicit_outputs);
             if status != TerminationReason::NotTerminated {
                 self.termination_reason = status;

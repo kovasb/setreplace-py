@@ -11,11 +11,15 @@ fn main() {
     println!("termination: {:?}", system.termination_reason());
     println!("events:      {}", system.events_count());
     println!("generations: {}", system.generations_count());
-    println!("final state: {} edges, {} atoms",
+    println!(
+        "final state: {} edges, {} atoms",
         system.final_state().len(),
-        system.final_atom_count());
-    println!("first few edges: {:?}",
-        &system.final_state()[..5.min(system.final_state().len())]);
+        system.final_atom_count()
+    );
+    println!(
+        "first few edges: {:?}",
+        &system.final_state()[..5.min(system.final_state().len())]
+    );
 
     // The causal graph of the first three generations is a binary tree.
     let mut small = HypergraphSystem::new(
@@ -24,5 +28,8 @@ fn main() {
     )
     .unwrap();
     small.evolve(&StepSpec::generations(3)).unwrap();
-    println!("\ncausal graph (3 generations):\n{}", small.causal_graph_dot(false));
+    println!(
+        "\ncausal graph (3 generations):\n{}",
+        small.causal_graph_dot(false)
+    );
 }

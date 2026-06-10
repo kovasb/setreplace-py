@@ -41,11 +41,7 @@ pub fn layered_causal_graph_svg(system: &HypergraphSystem, opts: &CausalGraphOpt
     // Layer = event generation (generation 1 on top; the initial event, if
     // shown, sits above at generation 0).
     let min_gen = events[ids[0]].generation;
-    let max_gen = ids
-        .iter()
-        .map(|&id| events[id].generation)
-        .max()
-        .unwrap();
+    let max_gen = ids.iter().map(|&id| events[id].generation).max().unwrap();
     let layer_count = (max_gen - min_gen + 1) as usize;
     let mut layers: Vec<Vec<usize>> = vec![Vec::new(); layer_count];
     for &id in &ids {
@@ -74,8 +70,8 @@ pub fn layered_causal_graph_svg(system: &HypergraphSystem, opts: &CausalGraphOpt
     }
     let bbox = bbox.pad(0.15);
 
-    let pt_per_unit = (style::MAX_IMAGE_SIZE.0 / bbox.width())
-        .min(style::MAX_IMAGE_SIZE.1 / bbox.height());
+    let pt_per_unit =
+        (style::MAX_IMAGE_SIZE.0 / bbox.width()).min(style::MAX_IMAGE_SIZE.1 / bbox.height());
     let upscale = opts.target_width_pt / style::MAX_IMAGE_SIZE.0;
     let px_per_unit = pt_per_unit * upscale * 2.0;
 
@@ -135,10 +131,7 @@ pub fn layered_causal_graph_svg(system: &HypergraphSystem, opts: &CausalGraphOpt
 
 /// Barycenter crossing reduction plus iterative coordinate relaxation:
 /// the small/standard recipe for layered DAG drawing.
-fn layered_positions(
-    layers: &[Vec<usize>],
-    edges: &[(usize, usize)],
-) -> HashMap<usize, f64> {
+fn layered_positions(layers: &[Vec<usize>], edges: &[(usize, usize)]) -> HashMap<usize, f64> {
     let mut parents: HashMap<usize, Vec<usize>> = HashMap::new();
     let mut children: HashMap<usize, Vec<usize>> = HashMap::new();
     for &(a, b) in edges {

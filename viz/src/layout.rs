@@ -73,11 +73,7 @@ fn drawn_segments(edges: &[Vec<Atom>]) -> Vec<(Atom, Atom)> {
 
 pub fn layout_hypergraph(edges: &[Vec<Atom>], seed: u64) -> Layout {
     let vertices = vertex_list(edges);
-    let index: HashMap<Atom, usize> = vertices
-        .iter()
-        .enumerate()
-        .map(|(i, &a)| (a, i))
-        .collect();
+    let index: HashMap<Atom, usize> = vertices.iter().enumerate().map(|(i, &a)| (a, i)).collect();
     let n = vertices.len();
     if n == 0 {
         return Layout {
@@ -433,10 +429,7 @@ fn pack_components(members: &[Vec<usize>], boxes: &[BBox], positions: &mut [V2])
     order.sort_by(|&a, &b| {
         let (wa, ha) = (boxes[a].width(), boxes[a].height());
         let (wb, hb) = (boxes[b].width(), boxes[b].height());
-        (wb * hb)
-            .partial_cmp(&(wa * ha))
-            .unwrap()
-            .then(a.cmp(&b))
+        (wb * hb).partial_cmp(&(wa * ha)).unwrap().then(a.cmp(&b))
     });
     let total_area: f64 = boxes
         .iter()

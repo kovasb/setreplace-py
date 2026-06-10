@@ -117,10 +117,7 @@ pub fn hypergraph_plot_svg(edges: &[Vec<Atom>], opts: &HypergraphPlotOptions) ->
             }
             let key = (a.min(b), a.max(b));
             let total = pair_counts[&key];
-            let index = *pair_seen
-                .entry(key)
-                .and_modify(|i| *i += 1)
-                .or_insert(0);
+            let index = *pair_seen.entry(key).and_modify(|i| *i += 1).or_insert(0);
             // Parallel segments spread across symmetric bulge offsets along
             // a canonical perpendicular (atom order), so antiparallel pairs
             // separate too; a lone segment stays straight.
@@ -230,10 +227,7 @@ pub fn hypergraph_plot_svg(edges: &[Vec<Atom>], opts: &HypergraphPlotOptions) ->
         world_min: bbox.min,
         world_max_y: bbox.max.y,
     };
-    let mut svg = Svg::new(
-        bbox.width() * px_per_unit,
-        bbox.height() * px_per_unit,
-    );
+    let mut svg = Svg::new(bbox.width() * px_per_unit, bbox.height() * px_per_unit);
     let stroke_px = 2.0; // 1 printer's point at 2x
 
     // 1. Hyperedge polygons (under everything).
@@ -289,10 +283,7 @@ pub fn hypergraph_plot_svg(edges: &[Vec<Atom>], opts: &HypergraphPlotOptions) ->
 
 /// Mean unit direction from each vertex towards its hyperedge neighbors;
 /// labels go on the opposite side.
-fn neighbor_directions(
-    edges: &[Vec<Atom>],
-    pos: &HashMap<Atom, V2>,
-) -> HashMap<Atom, V2> {
+fn neighbor_directions(edges: &[Vec<Atom>], pos: &HashMap<Atom, V2>) -> HashMap<Atom, V2> {
     let mut sums: HashMap<Atom, V2> = HashMap::new();
     for edge in edges {
         for w in edge.windows(2) {

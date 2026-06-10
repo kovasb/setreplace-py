@@ -56,11 +56,31 @@ fn main() {
     let out_dir = Path::new("out/comparison");
     fs::create_dir_all(out_dir).unwrap();
     for (wl, mine, name) in [
-        ("/tmp/wl_ref/basic.png", "out/basic_hypergraph_plot.png", "basic"),
-        ("/tmp/wl_ref/step1.png", "out/evolution_result_1_step.png", "step1"),
-        ("/tmp/wl_ref/step10.png", "out/evolution_result_10_steps.png", "step10"),
-        ("/tmp/wl_ref/step100.png", "out/evolution_result_100_steps.png", "step100"),
-        ("/tmp/wl_ref/causal10.png", "out/layered_causal_graph.png", "causal10"),
+        (
+            "/tmp/wl_ref/basic.png",
+            "out/basic_hypergraph_plot.png",
+            "basic",
+        ),
+        (
+            "/tmp/wl_ref/step1.png",
+            "out/evolution_result_1_step.png",
+            "step1",
+        ),
+        (
+            "/tmp/wl_ref/step10.png",
+            "out/evolution_result_10_steps.png",
+            "step10",
+        ),
+        (
+            "/tmp/wl_ref/step100.png",
+            "out/evolution_result_100_steps.png",
+            "step100",
+        ),
+        (
+            "/tmp/wl_ref/causal10.png",
+            "out/layered_causal_graph.png",
+            "causal10",
+        ),
     ] {
         compose(
             &load(wl),

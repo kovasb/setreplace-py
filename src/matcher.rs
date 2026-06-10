@@ -293,7 +293,10 @@ impl Matcher {
         bucket.positions.insert(rc.clone(), bucket.items.len());
         bucket.items.push(rc.clone());
         for &t in &rc.inputs {
-            self.token_to_matches.entry(t).or_default().insert(rc.clone());
+            self.token_to_matches
+                .entry(t)
+                .or_default()
+                .insert(rc.clone());
         }
     }
 
@@ -397,11 +400,7 @@ fn next_best_input(
 /// (variable → atom). Mirrors libSetReplace's
 /// `substituteMissingAtomsIfPossible`: repeated variables must agree, and
 /// concrete atoms (including ones substituted earlier) must be equal.
-pub(crate) fn unify_edge(
-    pattern: &[Atom],
-    atoms: &[Atom],
-    map: &mut HashMap<Atom, Atom>,
-) -> bool {
+pub(crate) fn unify_edge(pattern: &[Atom], atoms: &[Atom], map: &mut HashMap<Atom, Atom>) -> bool {
     if pattern.len() != atoms.len() {
         return false;
     }

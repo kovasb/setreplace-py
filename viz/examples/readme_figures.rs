@@ -12,13 +12,7 @@ use std::path::Path;
 use setreplace::*;
 use setreplace_viz::*;
 
-fn plot_state(
-    state: &[Vec<Atom>],
-    labels: bool,
-    seed: u64,
-    out_dir: &Path,
-    name: &str,
-) {
+fn plot_state(state: &[Vec<Atom>], labels: bool, seed: u64, out_dir: &Path, name: &str) {
     let opts = HypergraphPlotOptions {
         seed,
         labels: labels.then(|| readme_style_labels(state, 8)),
@@ -34,10 +28,9 @@ fn main() {
     let out_dir = Path::new("out");
     fs::create_dir_all(out_dir).unwrap();
 
-    let rule = Rule::parse(
-        "{{v1, v2, v3}, {v2, v4, v5}} -> {{v5, v6, v1}, {v6, v4, v2}, {v4, v5, v3}}",
-    )
-    .unwrap();
+    let rule =
+        Rule::parse("{{v1, v2, v3}, {v2, v4, v5}} -> {{v5, v6, v1}, {v6, v4, v2}, {v4, v5, v3}}")
+            .unwrap();
     let init = parse_state("{{1, 2, 3}, {2, 4, 5}, {4, 6, 7}}").unwrap();
 
     // Figure 1: the initial hypergraph.

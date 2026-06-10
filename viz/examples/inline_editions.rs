@@ -10,7 +10,12 @@ use setreplace_viz::*;
 fn main() {
     let out = Path::new("/tmp/inline");
     fs::create_dir_all(out).unwrap();
-    type System = (&'static str, &'static str, &'static str, (Option<u64>, Option<u64>));
+    type System = (
+        &'static str,
+        &'static str,
+        &'static str,
+        (Option<u64>, Option<u64>),
+    );
     let systems: &[System] = &[
         (
             "sierpinski",
@@ -32,11 +37,9 @@ fn main() {
         ),
     ];
     for (name, rule, init, (events, generations)) in systems {
-        let mut system = HypergraphSystem::new(
-            vec![Rule::parse(rule).unwrap()],
-            parse_state(init).unwrap(),
-        )
-        .unwrap();
+        let mut system =
+            HypergraphSystem::new(vec![Rule::parse(rule).unwrap()], parse_state(init).unwrap())
+                .unwrap();
         system
             .evolve(&StepSpec {
                 max_events: *events,

@@ -97,9 +97,8 @@ fn rule_to_text(r: &engine::Rule) -> String {
         }
     };
     let edge = |e: &Vec<i64>| format!("{{{}}}", e.iter().map(atom).collect::<Vec<_>>().join(", "));
-    let side = |es: &[Vec<i64>]| {
-        format!("{{{}}}", es.iter().map(edge).collect::<Vec<_>>().join(", "))
-    };
+    let side =
+        |es: &[Vec<i64>]| format!("{{{}}}", es.iter().map(edge).collect::<Vec<_>>().join(", "));
     format!("{} -> {}", side(&r.inputs), side(&r.outputs))
 }
 
@@ -117,10 +116,7 @@ enum LabelsArg {
     Map(HashMap<i64, String>),
 }
 
-fn build_labels(
-    state: &[Vec<i64>],
-    labels: Option<LabelsArg>,
-) -> Option<HashMap<i64, String>> {
+fn build_labels(state: &[Vec<i64>], labels: Option<LabelsArg>) -> Option<HashMap<i64, String>> {
     match labels {
         None | Some(LabelsArg::Flag(false)) => None,
         Some(LabelsArg::Flag(true)) => Some(
@@ -133,7 +129,13 @@ fn build_labels(
     }
 }
 
-fn make_plot(py: Python<'_>, state: &[Vec<i64>], labels: Option<LabelsArg>, seed: u64, width: f64) -> Plot {
+fn make_plot(
+    py: Python<'_>,
+    state: &[Vec<i64>],
+    labels: Option<LabelsArg>,
+    seed: u64,
+    width: f64,
+) -> Plot {
     let opts = viz::HypergraphPlotOptions {
         seed,
         labels: build_labels(state, labels),
@@ -352,7 +354,8 @@ impl HypergraphSystem {
             max_vertex_degree,
             max_edges,
         };
-        py.allow_threads(|| self.inner.evolve(&spec)).map_err(engine_err)
+        py.allow_threads(|| self.inner.evolve(&spec))
+            .map_err(engine_err)
     }
 
     /// Applies a single event (no limits). Returns whether one was applied.
@@ -451,13 +454,7 @@ impl HypergraphSystem {
 
     /// HypergraphPlot of the current state.
     #[pyo3(signature = (*, labels=None, seed=0, width=478.0))]
-    fn plot(
-        &self,
-        py: Python<'_>,
-        labels: Option<LabelsArg>,
-        seed: u64,
-        width: f64,
-    ) -> Plot {
+    fn plot(&self, py: Python<'_>, labels: Option<LabelsArg>, seed: u64, width: f64) -> Plot {
         let state = self.inner.final_state();
         make_plot(py, &state, labels, seed, width)
     }

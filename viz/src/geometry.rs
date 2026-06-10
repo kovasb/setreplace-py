@@ -65,7 +65,11 @@ pub fn arrow(pts: &[V2], vertex_size: f64, arrowhead_length: f64) -> (Vec<V2>, V
 /// vertices in counterclockwise order; fewer than 3 points if degenerate.
 pub fn convex_hull(points: &[V2]) -> Vec<V2> {
     let mut pts: Vec<V2> = points.to_vec();
-    pts.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap().then(a.y.partial_cmp(&b.y).unwrap()));
+    pts.sort_by(|a, b| {
+        a.x.partial_cmp(&b.x)
+            .unwrap()
+            .then(a.y.partial_cmp(&b.y).unwrap())
+    });
     pts.dedup_by(|a, b| a.dist(*b) < 1e-9);
     let n = pts.len();
     if n < 3 {
