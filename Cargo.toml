@@ -1,0 +1,11 @@
+[package]
+name = "setreplace"
+version = "0.1.0"
+edition = "2021"
+description = "Rust reimplementation of the core hypergraph substitution engine of Wolfram's SetReplace (Wolfram model evolution)"
+license = "MIT"
+
+[dependencies]
+
+[workspace]
+members = ["viz"]

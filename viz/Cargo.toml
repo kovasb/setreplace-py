@@ -1,0 +1,10 @@
+[package]
+name = "setreplace-viz"
+version = "0.1.0"
+edition = "2021"
+description = "Layout and rendering for setreplace hypergraphs, reproducing SetReplace's HypergraphPlot aesthetics"
+license = "MIT"
+
+[dependencies]
+setreplace = { path = ".." }
+resvg = "0.45"
