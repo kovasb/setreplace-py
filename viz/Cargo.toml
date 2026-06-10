@@ -8,3 +8,4 @@ license = "MIT"
 [dependencies]
 setreplace = { path = ".." }
 resvg = "0.45"
+rayon = "1.12.0"

@@ -32,6 +32,8 @@
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
+use rayon::prelude::*;
+
 use setreplace::Atom;
 
 use crate::pcg::Pcg32;
@@ -45,6 +47,11 @@ const TOL: f64 = 0.01; // movement termination tolerance (× K)
 const RHO: f64 = 0.75; // coarsening stall ratio
 /// Below this size exact all-pairs repulsion beats the tree overhead.
 const EXACT_REPULSION_LIMIT: usize = 100;
+/// Above this size, force sweeps switch from Gauss-Seidel to parallel
+/// Jacobi (forces computed from the sweep-start snapshot across threads).
+/// Jacobi reads only the snapshot, so results are deterministic for any
+/// thread count.
+const PARALLEL_FORCE_THRESHOLD: usize = 4000;
 
 #[derive(Debug, Clone)]
 pub struct LayoutOptions {
@@ -285,7 +292,7 @@ fn multilevel(
             let gamma = (pseudo_diameter(n, springs) / pseudo_diameter(coarse.n, &coarse.springs))
                 .clamp(1.0, 8.0);
             let mut pos = prolong(n, springs, &coarse, &coarse_pos, gamma, rng);
-            refine(&mut pos, springs, p, Cooling::Simple, 300, rng);
+            refine(&mut pos, springs, p, Cooling::Simple, 300);
             pos
         }
     }
@@ -322,7 +329,7 @@ fn random_layout_refined(
             *q = *q * factor;
         }
     }
-    refine(&mut pos, springs, p, Cooling::Adaptive, 1000, rng);
+    refine(&mut pos, springs, p, Cooling::Adaptive, 1000);
     pos
 }
 
@@ -588,7 +595,6 @@ fn refine(
     p: f64,
     cooling: Cooling,
     max_sweeps: usize,
-    rng: &mut Pcg32,
 ) {
     let n = pos.len();
     if n <= 1 {
@@ -620,28 +626,56 @@ fn refine(
         let mut energy = 0.0;
         let mut traversed = 0u64;
         let mut supernodes = 0u64;
-        for i in 0..n {
-            let mut force = v2(0.0, 0.0);
-            for &(j, w) in &adjacency[i] {
-                // f_a = w·d²/K along the spring.
-                let delta = pos[j] - pos[i];
-                let d = delta.norm().max(1e-9);
-                force += delta * (w * d / K);
+        if n > PARALLEL_FORCE_THRESHOLD {
+            // Parallel Jacobi: all forces from the snapshot, then apply.
+            let forces: Vec<(V2, u64, u64)> = (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let mut force = v2(0.0, 0.0);
+                    for &(j, w) in &adjacency[i] {
+                        let delta = snapshot[j] - snapshot[i];
+                        let d = delta.norm().max(1e-9);
+                        force += delta * (w * d / K);
+                    }
+                    let (mut tr, mut sn) = (0u64, 0u64);
+                    force += tree.repulsion(&snapshot, i, p, &mut tr, &mut sn);
+                    (force, tr, sn)
+                })
+                .collect();
+            for (i, &(force, tr, sn)) in forces.iter().enumerate() {
+                let magnitude = force.norm();
+                if magnitude > 1e-12 {
+                    pos[i] += force * (step / magnitude);
+                }
+                energy += magnitude * magnitude;
+                traversed += tr;
+                supernodes += sn;
             }
-            if use_tree {
-                force += tree.repulsion(pos, i, p, rng, &mut traversed, &mut supernodes);
-            } else {
-                for j in 0..n {
-                    if j != i {
-                        force += pair_repulsion(pos[i], pos[j], p, rng);
+        } else {
+            // Gauss-Seidel: each vertex moves as soon as its force is known.
+            for i in 0..n {
+                let mut force = v2(0.0, 0.0);
+                for &(j, w) in &adjacency[i] {
+                    // f_a = w·d²/K along the spring.
+                    let delta = pos[j] - pos[i];
+                    let d = delta.norm().max(1e-9);
+                    force += delta * (w * d / K);
+                }
+                if use_tree {
+                    force += tree.repulsion(pos, i, p, &mut traversed, &mut supernodes);
+                } else {
+                    for j in 0..n {
+                        if j != i {
+                            force += pair_repulsion(pos[i], pos[j], p, pair_salt(i, j));
+                        }
                     }
                 }
+                let magnitude = force.norm();
+                if magnitude > 1e-12 {
+                    pos[i] += force * (step / magnitude);
+                }
+                energy += magnitude * magnitude;
             }
-            let magnitude = force.norm();
-            if magnitude > 1e-12 {
-                pos[i] += force * (step / magnitude);
-            }
-            energy += magnitude * magnitude;
         }
         if use_tree {
             tuner.observe(traversed as f64 + 1.7 * supernodes as f64);
@@ -679,15 +713,31 @@ fn refine(
 }
 
 /// Repulsive force from j on i: magnitude C·K^{1+p}/dᵖ away from j.
-fn pair_repulsion(xi: V2, xj: V2, p: f64, rng: &mut Pcg32) -> V2 {
+/// Coincident points separate along a stateless hashed direction (keyed by
+/// the pair), keeping the hot loop free of shared RNG state so it can run
+/// in parallel deterministically.
+fn pair_repulsion(xi: V2, xj: V2, p: f64, salt: u64) -> V2 {
     let mut delta = xi - xj;
     let mut d = delta.norm();
     if d < 1e-6 {
-        // Deterministic jitter for coincident points.
-        delta = v2(rng.next_f64() - 0.5, rng.next_f64() - 0.5);
-        d = delta.norm().max(1e-6);
+        delta = hashed_direction(salt) * 0.5;
+        d = 0.5;
     }
     delta * (C * K.powf(1.0 + p) / d.powf(p + 1.0))
+}
+
+fn pair_salt(i: usize, j: usize) -> u64 {
+    ((i as u64) << 32) ^ j as u64
+}
+
+/// splitmix64-derived unit vector.
+fn hashed_direction(salt: u64) -> V2 {
+    let mut z = salt.wrapping_add(0x9E37_79B9_7F4A_7C15);
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    let angle = (z as f64 / u64::MAX as f64) * std::f64::consts::TAU;
+    v2(angle.cos(), angle.sin())
 }
 
 // ------------------------------------------------------- Barnes-Hut quadtree
@@ -819,7 +869,6 @@ impl QuadTree {
         pos: &[V2],
         i: usize,
         p: f64,
-        rng: &mut Pcg32,
         traversed: &mut u64,
         supernodes: &mut u64,
     ) -> V2 {
@@ -836,7 +885,7 @@ impl QuadTree {
                 let mut at = node.head;
                 while at != u32::MAX {
                     if at as usize != i {
-                        force += pair_repulsion(xi, pos[at as usize], p, rng);
+                        force += pair_repulsion(xi, pos[at as usize], p, pair_salt(i, at as usize));
                     }
                     at = self.chain[at as usize];
                 }
@@ -997,14 +1046,12 @@ mod tests {
         // of Hu's deliberately coarse theta = 1.2.
         let mut total_err = 0.0;
         for i in 0..pos.len() {
-            let mut rng_a = Pcg32::new(1);
-            let mut rng_b = Pcg32::new(1);
-            let approx = tree.repulsion(&pos, i, 1.0, &mut rng_a, &mut t, &mut s);
+            let approx = tree.repulsion(&pos, i, 1.0, &mut t, &mut s);
             let mut exact = v2(0.0, 0.0);
             let mut magnitude_sum = 0.0;
             for j in 0..pos.len() {
                 if j != i {
-                    let f = pair_repulsion(pos[i], pos[j], 1.0, &mut rng_b);
+                    let f = pair_repulsion(pos[i], pos[j], 1.0, pair_salt(i, j));
                     magnitude_sum += f.norm();
                     exact += f;
                 }
@@ -1022,6 +1069,27 @@ mod tests {
             "mean normalized error {mean_err} too large"
         );
         assert!(s > 0, "no supernode approximations used");
+    }
+
+    /// The parallel Jacobi path (n > PARALLEL_FORCE_THRESHOLD) must give
+    /// identical results regardless of thread count: forces read only the
+    /// sweep-start snapshot. Slow in debug; run with --release --ignored.
+    #[test]
+    #[ignore]
+    fn parallel_layout_thread_count_independent() {
+        let edges: Vec<Vec<Atom>> = (1..6000)
+            .map(|i| vec![i as Atom, (i + 1) as Atom])
+            .collect();
+        let a = layout_hypergraph(&edges, 5);
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
+        let b = pool.install(|| layout_hypergraph(&edges, 5));
+        for (atom, p) in &a.positions {
+            let q = b.positions[atom];
+            assert!((p.x - q.x).abs() < 1e-12 && (p.y - q.y).abs() < 1e-12);
+        }
     }
 
     /// Layouts remain deterministic per seed with the tree path engaged.

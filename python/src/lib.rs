@@ -279,15 +279,20 @@ impl Plot {
         &self.svg
     }
 
-    fn save(&self, path: &str) -> PyResult<()> {
+    fn save(&self, py: Python<'_>, path: &str) -> PyResult<()> {
         let p = Path::new(path);
         let ext = p
             .extension()
             .and_then(|e| e.to_str())
             .map(|e| e.to_ascii_lowercase());
+        // GIL released so ThreadPoolExecutor batches rasterize in parallel.
         match ext.as_deref() {
-            Some("svg") => fs::write(p, &self.svg).map_err(PyErr::from),
-            Some("png") => viz::svg_to_png(&self.svg, p).map_err(PyValueError::new_err),
+            Some("svg") => py
+                .allow_threads(|| fs::write(p, &self.svg))
+                .map_err(PyErr::from),
+            Some("png") => py
+                .allow_threads(|| viz::svg_to_png(&self.svg, p))
+                .map_err(PyValueError::new_err),
             _ => Err(PyValueError::new_err("path must end in .svg or .png")),
         }
     }
