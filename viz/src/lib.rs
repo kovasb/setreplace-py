@@ -20,7 +20,7 @@ mod svg;
 mod vec2;
 
 pub use causal::{layered_causal_graph_svg, CausalGraphOptions};
-pub use layout::{layout_hypergraph, vertex_list, Layout};
+pub use layout::{layout_hypergraph, layout_hypergraph_with, vertex_list, Layout, LayoutOptions};
 pub use plot::{hypergraph_plot_svg, readme_style_labels, HypergraphPlotOptions};
 pub use png::svg_to_png;
 pub use vec2::V2;

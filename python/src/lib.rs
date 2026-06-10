@@ -135,11 +135,13 @@ fn make_plot(
     labels: Option<LabelsArg>,
     seed: u64,
     width: f64,
+    repulsive_exponent: f64,
 ) -> Plot {
     let opts = viz::HypergraphPlotOptions {
         seed,
         labels: build_labels(state, labels),
         target_width_pt: width,
+        repulsive_exponent,
         ..Default::default()
     };
     let svg = py.allow_threads(|| viz::hypergraph_plot_svg(state, &opts));
@@ -453,10 +455,17 @@ impl HypergraphSystem {
     }
 
     /// HypergraphPlot of the current state.
-    #[pyo3(signature = (*, labels=None, seed=0, width=478.0))]
-    fn plot(&self, py: Python<'_>, labels: Option<LabelsArg>, seed: u64, width: f64) -> Plot {
+    #[pyo3(signature = (*, labels=None, seed=0, width=478.0, repulsive_exponent=1.0))]
+    fn plot(
+        &self,
+        py: Python<'_>,
+        labels: Option<LabelsArg>,
+        seed: u64,
+        width: f64,
+        repulsive_exponent: f64,
+    ) -> Plot {
         let state = self.inner.final_state();
-        make_plot(py, &state, labels, seed, width)
+        make_plot(py, &state, labels, seed, width, repulsive_exponent)
     }
 
     /// Layered causal graph (orange events, dark-red causal edges).
@@ -483,23 +492,33 @@ impl HypergraphSystem {
 
 /// HypergraphPlot of any hypergraph (all-binary edges = ordinary digraph).
 #[pyfunction]
-#[pyo3(signature = (edges, *, labels=None, seed=0, width=478.0))]
+#[pyo3(signature = (edges, *, labels=None, seed=0, width=478.0, repulsive_exponent=1.0))]
 fn plot(
     py: Python<'_>,
     edges: Vec<Vec<i64>>,
     labels: Option<LabelsArg>,
     seed: u64,
     width: f64,
+    repulsive_exponent: f64,
 ) -> Plot {
-    make_plot(py, &edges, labels, seed, width)
+    make_plot(py, &edges, labels, seed, width, repulsive_exponent)
 }
 
 /// Spring-electrical vertex positions (mean drawn-edge length 1), for
 /// custom drawing with matplotlib & friends.
 #[pyfunction]
-#[pyo3(signature = (edges, *, seed=0))]
-fn layout(py: Python<'_>, edges: Vec<Vec<i64>>, seed: u64) -> HashMap<i64, (f64, f64)> {
-    let result = py.allow_threads(|| viz::layout_hypergraph(&edges, seed));
+#[pyo3(signature = (edges, *, seed=0, repulsive_exponent=1.0))]
+fn layout(
+    py: Python<'_>,
+    edges: Vec<Vec<i64>>,
+    seed: u64,
+    repulsive_exponent: f64,
+) -> HashMap<i64, (f64, f64)> {
+    let options = viz::LayoutOptions {
+        seed,
+        repulsive_exponent,
+    };
+    let result = py.allow_threads(|| viz::layout_hypergraph_with(&edges, &options));
     result
         .positions
         .into_iter()

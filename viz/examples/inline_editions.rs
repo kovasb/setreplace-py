@@ -54,6 +54,7 @@ fn main() {
                 labels: None,
                 target_width_pt: 330.0,
                 arrowhead_length: Some(0.0),
+                ..Default::default()
             },
         );
         fs::write(out.join(format!("{name}.svg")), &svg).unwrap();

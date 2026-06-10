@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use setreplace::Atom;
 
 use crate::geometry::{arrow, convex_hull, sample_loop, sample_qbezier};
-use crate::layout::{layout_hypergraph, vertex_list};
+use crate::layout::{layout_hypergraph_with, vertex_list, LayoutOptions};
 use crate::style;
 use crate::svg::{Frame, Svg};
 use crate::vec2::{v2, BBox, V2};
@@ -24,6 +24,9 @@ pub struct HypergraphPlotOptions {
     /// `"ArrowheadLength"`: `None` is Automatic (the style formula);
     /// `Some(0.0)` draws undirected-looking lines.
     pub arrowhead_length: Option<f64>,
+    /// Repulsive force exponent p (Hu eq. 3); 1.0 is the classic model,
+    /// 2.0 reduces the peripheral effect on tree-like hypergraphs.
+    pub repulsive_exponent: f64,
 }
 
 impl Default for HypergraphPlotOptions {
@@ -33,6 +36,7 @@ impl Default for HypergraphPlotOptions {
             labels: None,
             target_width_pt: 478.0,
             arrowhead_length: None,
+            repulsive_exponent: 1.0,
         }
     }
 }
@@ -64,7 +68,13 @@ struct DrawnEdge {
 }
 
 pub fn hypergraph_plot_svg(edges: &[Vec<Atom>], opts: &HypergraphPlotOptions) -> String {
-    let layout = layout_hypergraph(edges, opts.seed);
+    let layout = layout_hypergraph_with(
+        edges,
+        &LayoutOptions {
+            seed: opts.seed,
+            repulsive_exponent: opts.repulsive_exponent,
+        },
+    );
     let pos = &layout.positions;
 
     // Plot range (larger coordinate extent) drives the arrowhead length.

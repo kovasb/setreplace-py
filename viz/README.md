@@ -38,13 +38,21 @@ eyeballed:
   translucent polygon; lines are trimmed by the vertex radius at both ends
   and by the arrowhead length at the head; unary edges render as growing
   circles; parallel segments separate into symmetric Bézier arcs.
-- **Layout** (`src/layout.rs`) is Yifan Hu's adaptive spring-electrical
-  algorithm (the method behind Mathematica's `SpringElectricalEmbedding`),
-  run per connected component, principal-axis aligned (Mathematica plots come
-  out wide), shelf-packed across components, and rescaled so the **mean drawn
-  edge length is 1** — the same normalization `rescaleEmbedding` performs,
-  which is what makes vertex/arrowhead proportions consistent at every scale.
-  Layouts are deterministic per seed.
+- **Layout** (`src/layout.rs`) is a complete implementation of Yifan Hu,
+  "Efficient, High-Quality Force-Directed Graph Drawing" (the method behind
+  Mathematica's `SpringElectricalEmbedding`): Barnes–Hut quadtree repulsion
+  (θ = 1.2, center-of-gravity supernodes, adaptively tuned tree depth, so a
+  sweep is O(|V| log |V|)), Gauss-Seidel updates with the paper's adaptive
+  step-length scheme from random layouts and simple cooling during
+  refinement, multilevel coarsening by smallest-vertex-weight matching with
+  the HYBRID independent-set fallback, prolongation scaled by the levels'
+  pseudo-diameter ratio (eq. 10), and an optional general repulsive
+  exponent (`repulsive_exponent`, eq. 3; p = 2 reduces the peripheral
+  effect on tree-like graphs). Run per connected component, principal-axis
+  aligned, shelf-packed across components, and rescaled so the **mean drawn
+  edge length is 1** — the same normalization `rescaleEmbedding` performs.
+  Layouts are deterministic per seed; 100k-vertex states lay out in about a
+  minute.
 - **Causal graphs** (`src/causal.rs`) use the exact layer assignment
   SetReplace passes to `"LayeredDigraphEmbedding"` (layer = event
   generation), with barycenter ordering and neighbor-mean coordinate

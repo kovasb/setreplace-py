@@ -88,6 +88,7 @@ class HypergraphSystem:
         labels: bool | dict[int, str] | None = None,
         seed: int = 0,
         width: float = 478.0,
+        repulsive_exponent: float = 1.0,
     ) -> Plot: ...
     def causal_graph_plot(
         self, *, include_initial: bool = False, width: float = 478.0
@@ -99,8 +100,11 @@ def plot(
     labels: bool | dict[int, str] | None = None,
     seed: int = 0,
     width: float = 478.0,
+    repulsive_exponent: float = 1.0,
 ) -> Plot: ...
-def layout(edges: list[list[int]], *, seed: int = 0) -> dict[int, tuple[float, float]]: ...
+def layout(
+    edges: list[list[int]], *, seed: int = 0, repulsive_exponent: float = 1.0
+) -> dict[int, tuple[float, float]]: ...
 def evolve(
     rules: Rules,
     initial_state: list[list[int]],
