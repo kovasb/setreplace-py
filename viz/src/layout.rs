@@ -10,7 +10,7 @@
 //!   (`rescaleEmbedding`/`edgeScale` in the original), which puts vertex
 //!   radii and arrowhead lengths in natural units.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use setreplace::Atom;
 
@@ -173,41 +173,178 @@ fn components(n: usize, springs: &[(usize, usize)]) -> Vec<usize> {
         .collect()
 }
 
-/// Spring-electrical layout of one component using Yifan Hu's adaptive
-/// scheme (the algorithm behind Mathematica's SpringElectricalEmbedding):
-/// attractive force d²/K along springs, repulsive force C·K²/d between all
-/// pairs, every vertex moving a fixed adaptive step along its force
-/// direction. Deterministic given the RNG state.
+/// Spring-electrical layout of one component using Yifan Hu's multilevel
+/// adaptive scheme (the algorithm behind Mathematica's
+/// SpringElectricalEmbedding): the graph is recursively coarsened by
+/// heavy-edge matching, laid out at the coarsest level, and the positions
+/// are interpolated back up with force refinement at each level. This is
+/// what lets large structured graphs (meshes, fractals) unfold globally
+/// instead of freezing in a tangled local minimum. Deterministic given the
+/// RNG state.
 fn force_layout(verts: &[usize], springs: &[(usize, usize)], rng: &mut Pcg32) -> Vec<V2> {
     let n = verts.len();
     let local: HashMap<usize, usize> = verts.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-    let springs: Vec<(usize, usize)> = springs
-        .iter()
-        .map(|&(a, b)| (local[&a], local[&b]))
-        .collect();
+    // Aggregate parallel springs into weights.
+    let mut weights: BTreeMap<(usize, usize), f64> = BTreeMap::new();
+    for &(a, b) in springs {
+        let (a, b) = (local[&a], local[&b]);
+        let key = (a.min(b), a.max(b));
+        *weights.entry(key).or_insert(0.0) += 1.0;
+    }
+    let springs: Vec<(usize, usize, f64)> =
+        weights.into_iter().map(|((a, b), w)| (a, b, w)).collect();
 
-    // Seeded random initial placement in a disk sized to the component.
-    let radius = (n as f64).sqrt();
-    let mut pos: Vec<V2> = (0..n)
-        .map(|_| {
-            let angle = rng.next_f64() * std::f64::consts::TAU;
-            let r = radius * rng.next_f64().sqrt();
-            v2(r * angle.cos(), r * angle.sin())
-        })
-        .collect();
+    let mut pos = multilevel(n, &springs, rng);
+
+    // Center on the origin and align the principal axis horizontally, as
+    // Mathematica's embeddings come out (deterministic mirror choice).
+    let mut center = v2(0.0, 0.0);
+    for p in &pos {
+        center += *p;
+    }
+    center = center * (1.0 / n as f64);
+    for p in &mut pos {
+        *p = *p - center;
+    }
+    pca_align(&mut pos);
+    pos
+}
+
+/// Below this size, lay out directly from random initial positions.
+const COARSEST: usize = 40;
+
+fn multilevel(n: usize, springs: &[(usize, usize, f64)], rng: &mut Pcg32) -> Vec<V2> {
     if n == 1 {
         return vec![v2(0.0, 0.0)];
     }
+    if n <= COARSEST {
+        let radius = (n as f64).sqrt();
+        let mut pos: Vec<V2> = (0..n)
+            .map(|_| {
+                let angle = rng.next_f64() * std::f64::consts::TAU;
+                let r = radius * rng.next_f64().sqrt();
+                v2(r * angle.cos(), r * angle.sin())
+            })
+            .collect();
+        refine(&mut pos, springs, 1.0, 1000, rng);
+        return pos;
+    }
 
+    let (coarse_of, coarse_n) = heavy_edge_matching(n, springs);
+    if coarse_n as f64 > 0.95 * n as f64 {
+        // Matching failed to shrink the graph (e.g. a star); lay out here.
+        let radius = (n as f64).sqrt();
+        let mut pos: Vec<V2> = (0..n)
+            .map(|_| {
+                let angle = rng.next_f64() * std::f64::consts::TAU;
+                let r = radius * rng.next_f64().sqrt();
+                v2(r * angle.cos(), r * angle.sin())
+            })
+            .collect();
+        refine(&mut pos, springs, 1.0, 1000, rng);
+        return pos;
+    }
+
+    // Coarse springs: project and merge.
+    let mut coarse_weights: BTreeMap<(usize, usize), f64> = BTreeMap::new();
+    for &(a, b, w) in springs {
+        let (ca, cb) = (coarse_of[a], coarse_of[b]);
+        if ca != cb {
+            let key = (ca.min(cb), ca.max(cb));
+            *coarse_weights.entry(key).or_insert(0.0) += w;
+        }
+    }
+    let coarse_springs: Vec<(usize, usize, f64)> = coarse_weights
+        .into_iter()
+        .map(|((a, b), w)| (a, b, w))
+        .collect();
+
+    let coarse_pos = multilevel(coarse_n, &coarse_springs, rng);
+
+    // Prolong: each vertex starts at its coarse representative, slightly
+    // displaced so matched pairs can separate.
+    let mut pos: Vec<V2> = (0..n)
+        .map(|v| {
+            let angle = rng.next_f64() * std::f64::consts::TAU;
+            coarse_pos[coarse_of[v]] + v2(angle.cos(), angle.sin()) * 0.05
+        })
+        .collect();
+    // The coarse layout's scale roughly doubles in vertex count terms;
+    // expand so densities stay comparable before refining.
+    let growth = (n as f64 / coarse_n as f64).sqrt();
+    for p in &mut pos {
+        *p = *p * growth;
+    }
+    refine(&mut pos, springs, 0.35, 250, rng);
+    pos
+}
+
+/// Greedy heavy-edge matching: visits vertices in index order, pairing each
+/// unmatched vertex with its heaviest unmatched neighbor. Returns the
+/// fine→coarse index map and the coarse vertex count. Deterministic.
+fn heavy_edge_matching(n: usize, springs: &[(usize, usize, f64)]) -> (Vec<usize>, usize) {
+    let mut neighbors: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n];
+    for &(a, b, w) in springs {
+        neighbors[a].push((b, w));
+        neighbors[b].push((a, w));
+    }
+    let mut mate: Vec<Option<usize>> = vec![None; n];
+    for v in 0..n {
+        if mate[v].is_some() {
+            continue;
+        }
+        let mut best: Option<(usize, f64)> = None;
+        for &(u, w) in &neighbors[v] {
+            if u != v && mate[u].is_none() {
+                let better = match best {
+                    None => true,
+                    Some((bu, bw)) => w > bw || (w == bw && u < bu),
+                };
+                if better {
+                    best = Some((u, w));
+                }
+            }
+        }
+        if let Some((u, _)) = best {
+            mate[v] = Some(u);
+            mate[u] = Some(v);
+        }
+    }
+    let mut coarse_of = vec![usize::MAX; n];
+    let mut next = 0;
+    for v in 0..n {
+        if coarse_of[v] != usize::MAX {
+            continue;
+        }
+        coarse_of[v] = next;
+        if let Some(u) = mate[v] {
+            coarse_of[u] = next;
+        }
+        next += 1;
+    }
+    (coarse_of, next)
+}
+
+/// Hu's adaptive force iteration: attractive force w·d²/K along springs,
+/// repulsive force C·K²/d between all pairs, every vertex moving a fixed
+/// adaptive step along its force direction.
+fn refine(
+    pos: &mut [V2],
+    springs: &[(usize, usize, f64)],
+    initial_step: f64,
+    max_iterations: usize,
+    rng: &mut Pcg32,
+) {
+    let n = pos.len();
     let k = 1.0; // natural spring length
     let c = 0.2; // relative repulsive strength (Hu's default)
     let t = 0.9; // step adaptivity
-    let mut step = k;
+    let mut step = initial_step * k;
     let mut progress = 0u32;
     let mut previous_energy = f64::INFINITY;
 
     let mut force = vec![v2(0.0, 0.0); n];
-    for _ in 0..1000 {
+    for _ in 0..max_iterations {
         for f in &mut force {
             *f = v2(0.0, 0.0);
         }
@@ -220,15 +357,15 @@ fn force_layout(verts: &[usize], springs: &[(usize, usize)], rng: &mut Pcg32) ->
                     delta = v2(rng.next_f64() - 0.5, rng.next_f64() - 0.5);
                     d = delta.norm().max(1e-6);
                 }
-                let push = delta * (c * k * k / (d * d * d).max(1e-12) * d);
+                let push = delta * (c * k * k / (d * d));
                 force[i] += push;
                 force[j] += -push;
             }
         }
-        for &(a, b) in &springs {
+        for &(a, b, w) in springs {
             let delta = pos[a] - pos[b];
             let d = delta.norm().max(1e-6);
-            let pull = delta * (d / k); // magnitude d²/k along the unit vector
+            let pull = delta * (w * d / k); // magnitude w·d²/k along the unit vector
             force[a] += -pull;
             force[b] += pull;
         }
@@ -256,19 +393,6 @@ fn force_layout(verts: &[usize], springs: &[(usize, usize)], rng: &mut Pcg32) ->
             break;
         }
     }
-
-    // Center on the origin and align the principal axis horizontally, as
-    // Mathematica's embeddings come out (deterministic mirror choice).
-    let mut center = v2(0.0, 0.0);
-    for p in &pos {
-        center += *p;
-    }
-    center = center * (1.0 / n as f64);
-    for p in &mut pos {
-        *p = *p - center;
-    }
-    pca_align(&mut pos);
-    pos
 }
 
 /// Rotates points so the principal component lies along x, with mirror

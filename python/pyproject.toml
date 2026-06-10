@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "setreplace"
+version = "0.1.0"
+description = "Wolfram models in Python: SetReplace-exact hypergraph substitution and HypergraphPlot-style rendering, powered by Rust"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Kovas Boguta" }]
+keywords = ["wolfram-model", "hypergraph", "rewriting", "setreplace", "graph-layout"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+
+[project.urls]
+Repository = "https://github.com/kovasb/setreplace-py"
+Documentation = "https://github.com/kovasb/setreplace-py/blob/main/docs/python-api.md"
+
+[tool.maturin]
+module-name = "setreplace"
+features = ["pyo3/extension-module"]

@@ -1,184 +1,164 @@
-# setreplace-rs
+# setreplace
 
-A Rust reimplementation of the core of Wolfram's
-[SetReplace](https://github.com/maxitg/SetReplace): **hypergraph substitution
-systems** (Wolfram models) — the engine that matches and rewrites ordered
-hypergraphs, tracks every token and event, and yields generations, causal
-graphs, and the rest — plus a **native visualization engine** that reproduces
-`HypergraphPlot`'s look. No Wolfram Language, no graphviz, no runtime
-dependencies beyond a pure-Rust rasterizer.
+**Wolfram models in Python** — hypergraph substitution systems with the exact
+semantics of Wolfram's [SetReplace](https://github.com/maxitg/SetReplace),
+plus `HypergraphPlot`-style rendering, powered by a Rust engine. No Wolfram
+Language license, no graphviz, no native dependencies to install.
 
-<img src="docs/images/evolution_result_100_steps.png" width="478"
-     alt="100 events of the canonical SetReplace rule, rendered by setreplace-viz">
+<img src="docs/images/showcase/sierpinski_fractal.png" width="440"
+     alt="Self-similar structure from {{x,y,z}} -> {{x,d,f},{y,e,d},{z,f,e}} after 7 generations">
 
-The workspace has two crates:
+```python
+import setreplace as sr
 
-| crate | what it is | dependencies |
-|---|---|---|
-| [`setreplace`](src/) | the substitution engine (port of `libSetReplace`, single-history) | none |
-| [`setreplace-viz`](viz/) | spring-electrical layout + SVG/PNG rendering in SetReplace's style | `resvg` |
-
-## A Wolfram model in a few lines
-
-```rust
-use setreplace::*;
-use setreplace_viz::*;
-
-// WolframModel[{{x, y}} -> {{x, y}, {y, z}}, {{1, 1}}, 5]
-let rule = Rule::parse("{{x, y}} -> {{x, y}, {y, z}}")?;
-let mut system = HypergraphSystem::new(vec![rule], parse_state("{{1, 1}}")?)?;
-system.evolve(&StepSpec::generations(5))?;
-
-assert_eq!(system.final_state().len(), 32);          // "FinalState"
-assert_eq!(system.events_count(), 31);               // "EventsCount"
-assert_eq!(system.generations_count(), 5);           // "TotalGenerationsCount"
-
-let svg = hypergraph_plot_svg(&system.final_state(), &HypergraphPlotOptions::default());
-svg_to_png(&svg, std::path::Path::new("state.png"))?;
+system = sr.evolve("{{x, y, z}} -> {{x, d, f}, {y, e, d}, {z, f, e}}",
+                   [[1, 1, 1]], generations=7)
+system.plot()        # ↑ renders inline in Jupyter
 ```
 
-## The canonical evolution
-
-The figure sequence from the SetReplace README, regenerated end-to-end by
-this repo (`cargo run --release -p setreplace-viz --example readme_figures`).
-The initial hypergraph:
-
-```rust
-let init = parse_state("{{1, 2, 3}, {2, 4, 5}, {4, 6, 7}}")?;
-let opts = HypergraphPlotOptions {
-    labels: Some(readme_style_labels(&init, 8)), // fresh atoms get v-names
-    ..Default::default()
-};
-let svg = hypergraph_plot_svg(&init, &opts);
-```
-
-<img src="docs/images/basic_hypergraph_plot.png" width="478"
-     alt="Three ternary hyperedges chained at vertices 2 and 4">
-
-One event of the signature rule — the engine consumes two hyperedges sharing
-`v2` and produces three, creating a fresh vertex:
-
-```rust
-let rule = Rule::parse(
-    "{{v1, v2, v3}, {v2, v4, v5}} -> {{v5, v6, v1}, {v6, v4, v2}, {v4, v5, v3}}",
-)?;
-let mut system = HypergraphSystem::new(vec![rule], init)?;
-system.evolve(&StepSpec::events(1))?;
-```
-
-<img src="docs/images/evolution_result_1_step.png" width="430"
-     alt="State after one event; the new vertex is v8">
-
-After 10 events:
-
-<img src="docs/images/evolution_result_10_steps.png" width="478"
-     alt="State after ten events">
-
-And after 100 events (103 hyperedges, matching the original README's count):
-
-<img src="docs/images/evolution_result_100_steps.png" width="478"
-     alt="State after one hundred events">
-
-## Causal graphs
-
-Each event consumes and creates tokens; token flow between events is the
-causal graph. The layered rendering pins each event's layer to its
-generation, exactly as SetReplace's `"LayeredCausalGraph"` does:
-
-```rust
-let svg = layered_causal_graph_svg(&system, &CausalGraphOptions::default());
-// or take the raw edges / DOT and do your own thing:
-let edges: Vec<(EventId, EventId)> = system.causal_graph_edges(false);
-let dot = system.causal_graph_dot(false);
-```
-
-<img src="docs/images/layered_causal_graph.png" width="360"
-     alt="Layered causal graph: orange events, dark red causal edges">
-
-## Engine API in one breath
-
-`Rule::parse` accepts the Wolfram-ish forms `{{x, y}} -> {{x, y}, {y, z}}`
-and `{{a_, b_}} :> ...` (identifiers are pattern variables, integers are
-concrete atoms, output-only variables create fresh atoms). A
-`HypergraphSystem` evolves under a `StepSpec` and answers the
-evolution-object questions:
-
-```rust
-let mut system = HypergraphSystem::with_options(rules, init, EvolutionOptions {
-    event_ordering: default_event_ordering(), // {LeastRecentEdge, RuleOrdering, RuleIndex}
-    random_seed: 42,                          // seeded tie-breaking
-})?;
-system.evolve(&StepSpec { max_events: Some(100), ..Default::default() })?;
-system.termination_reason();                  // MaxEvents / MaxGenerations / FixedPoint / ...
-system.tokens();                              // every hyperedge ever, with creator/destroyer/generation
-system.events();                              // every event; [0] is the initial pseudo-event
-system.states_by_event();                     // SetReplaceList
-system.state_at_generation(2);                // evolution[2]
-system.max_complete_generation()?;            // "MaxCompleteGeneration"
-```
-
-Rough Wolfram Language ↔ Rust dictionary:
-
-| Wolfram Language | here |
-|---|---|
-| `SetReplace[set, rules, n]` | `set_replace(&set, &rules, n)` |
-| `SetReplaceList[set, rules, n]` | `set_replace_list(&set, &rules, n)` |
-| `SetReplaceAll[set, rules, g]` | `set_replace_all(&set, &rules, g)` |
-| `SetReplaceFixedPoint[set, rules]` | `set_replace_fixed_point(&set, &rules)` |
-| `WolframModel[rules, init, g]` | `system.evolve(&StepSpec::generations(g))` |
-| `<\|"MaxEvents" -> n, "MaxVertices" -> v\|>` | `StepSpec { max_events, max_vertices, ... }` |
-| `"EventOrderingFunction" -> {...}` | `EvolutionOptions::event_ordering` |
-| `"FinalState"` / `"EventsCount"` / `"TerminationReason"` | `final_state()` / `events_count()` / `termination_reason()` |
-| `"CausalGraph"` / `"LayeredCausalGraph"` | `causal_graph_edges()` / `layered_causal_graph_svg()` |
-| `HypergraphPlot[state]` | `hypergraph_plot_svg(&state, &opts)` |
-
-## Fidelity
-
-Both crates are validated against the original rather than approximated from
-memory:
-
-- **Engine**: semantics were ported from a reading of `libSetReplace`
-  (matcher, ordering buckets, generation bookkeeping, step limits). The test
-  suite includes vectors lifted from SetReplace's own `.wlt` tests (cited by
-  file and line) and behaviors verified **live** against SetReplace 0.3.196
-  via wolframscript — final states, exact per-event token traces, causal
-  edge lists, every named event ordering, termination reasons, and
-  fresh-vertex naming all agree. See [tests/wolfram_vectors.rs](tests/wolfram_vectors.rs).
-- **Visualization**: colors, vertex size, the arrowhead-length formula, and
-  the literal arrowhead polygon are transcribed from SetReplace's style
-  sources; layout is the same spring-electrical model (cyclic hyperedge
-  springs, mean-edge-length normalization). Side-by-side renders of
-  *identical* states, Wolfram on the left, this repo on the right:
-
-<img src="docs/images/step10_wolfram_vs_rust.png" width="900"
-     alt="Wolfram's HypergraphPlot vs setreplace-viz on the same 13-edge state">
-
-<img src="docs/images/causal10_wolfram_vs_rust.png" width="478"
-     alt="Wolfram's LayeredCausalGraph vs setreplace-viz on the same evolution">
-
-## Scope
-
-Included: the single-history hypergraph substitution engine (incremental
-matching, all `EventOrderingFunction`s with seeded random tie-breaking,
-`MaxEvents`/`MaxGenerations`/`MaxVertices`/`MaxVertexDegree`/`MaxEdges`,
-fixed points), full token/event history and its derived properties, causal
-graphs, and `HypergraphPlot`-style rendering of states and layered causal
-graphs.
-
-Deliberately out (for now): multiway evolution and branchial graphs, event
-deduplication, the WL symbolic fallback (non-hypergraph sets, arbitrary
-patterns), parallel matching, and the analysis/utility zoo. The full triage,
-the exact conventions (0-based ids, event 0 = initial pseudo-event,
-fresh-atom naming), and performance notes are in
-[docs/engine.md](docs/engine.md); the rendering internals are in
-[viz/README.md](viz/README.md).
-
-## Building
+## Install
 
 ```bash
-cargo test --workspace                                     # engine + viz tests
-cargo run --release -p setreplace-viz --example readme_figures   # regenerate viz/out/*.png
-cargo run --release --example bench                        # engine throughput smoke test
+pip install setreplace          # wheels: macOS, Linux, Windows; Python ≥ 3.9
 ```
 
-MIT licensed, like SetReplace itself.
+(Until the first PyPI release: `pip install maturin && cd python && maturin develop --release`.)
+
+## Five minutes of Wolfram models
+
+A *state* is a list of hyperedges — plain `list[list[int]]`. A *rule*
+rewrites sub-hypergraphs, written in the same textual form the SetReplace
+docs use:
+
+```python
+import setreplace as sr
+
+rule = "{{v1, v2, v3}, {v2, v4, v5}} -> {{v5, v6, v1}, {v6, v4, v2}, {v4, v5, v3}}"
+system = sr.evolve(rule, [[1, 2, 3], [2, 4, 5], [4, 6, 7]], events=10)
+
+system                  # <HypergraphSystem: 10 events, 5 generations, 13 edges, MaxEvents>
+system.final_state      # [[7, 2, 9], [7, 14, 6], [14, 11, 4], ...]
+system.plot(labels=True)
+```
+
+<img src="docs/images/evolution_result_10_steps.png" width="478"
+     alt="Hypergraph after ten events of the signature SetReplace rule">
+
+Evolution is incremental — keep going, inspect anything, every token and
+event carries its full causal history:
+
+```python
+system.evolve(max_events=100)            # resume where it stopped
+system.termination_reason                # "MaxEvents" | "FixedPoint" | "MaxGenerations" | ...
+system.states_by_event()                 # state after every event (SetReplaceList)
+system.state_at_generation(2)            # the WL evolution object's [2]
+system.tokens()[0]                       # Token(atoms=[1, 2, 3], creator_event=0, ...)
+system.causal_graph_edges()              # [(1, 3), (2, 3), ...]
+system.causal_graph_plot()               # layered causal graph, inline
+```
+
+<img src="docs/images/layered_causal_graph.png" width="320"
+     alt="Layered causal graph: orange events, dark red causal edges">
+
+One-liners mirroring the Wolfram Language functions, and raw layout access
+for matplotlib & friends:
+
+```python
+sr.set_replace([[1, 2], [2, 3]], "{{a_, b_}, {b_, c_}} :> {{a, c}}")   # [[1, 3]]
+sr.set_replace_all(state, rules)             # one generation everywhere
+sr.set_replace_fixed_point(state, rules)     # run until nothing matches
+pos = sr.layout(system.final_state)          # {atom: (x, y)}, mean edge length 1
+system.plot().save("state.png")              # or .svg; rasterized in-process
+```
+
+Everything is deterministic: same rules, same seeds → same evolution and the
+same figure, every time, on every platform.
+
+## Gallery
+
+Rules from the [Wolfram Physics Project announcement
+post](https://writings.stephenwolfram.com/2020/04/finally-we-may-have-a-path-to-the-fundamental-theory-of-physics-and-its-beautiful/),
+run long. Each is one `sr.evolve(...)` plus one `.plot()`; regenerate with
+`cargo run --release -p setreplace-viz --example showcase`.
+
+`"{{a, b, b}, {c, a, d}} -> {{b, e, b}, {b, c, e}, {d, e, e}}"` — 1000
+events from two self-loops: a regular triangulated net emerges from nothing:
+
+<img src="docs/images/showcase/triangular_net.png" width="500"
+     alt="Emergent regular triangulated net">
+
+`"{{a, b, c}, {d, b, e}} -> {{f, c, a}, {c, f, d}, {a, b, f}}"` — 2000
+events: a curved lens-shaped mesh:
+
+<img src="docs/images/showcase/lens_mesh.png" width="500"
+     alt="Curved lens-shaped mesh">
+
+The announcement's recurring rule
+`"{{x, y}, {x, z}} -> {{x, z}, {x, w}, {y, w}, {z, w}}"` (1500 events) and
+`"{{a, a, b}, {c, d, a}} -> {{d, d, c}, {e, d, e}, {e, b, a}}"` (2000):
+
+<img src="docs/images/showcase/announcement_web.png" width="380"
+     alt="Organic web from the announcement's binary rule"> <img src="docs/images/showcase/crumpled_ball.png" width="380"
+     alt="Densely crumpled ball of space">
+
+Large structured states render in seconds: layout is Yifan Hu's *multilevel*
+spring-electrical embedding (the algorithm behind Mathematica's), which is
+what lets meshes and fractals unfold instead of freezing into hairballs.
+
+## The API in one breath
+
+| Wolfram Language | Python |
+|---|---|
+| `WolframModel[rules, init, g]` | `sr.evolve(rules, init, generations=g)` |
+| `SetReplace[set, rules, n]` | `sr.set_replace(set, rules, n)` |
+| `SetReplaceList` / `SetReplaceAll` / `SetReplaceFixedPoint` | `sr.set_replace_list` / `sr.set_replace_all` / `sr.set_replace_fixed_point` |
+| `<\|"MaxEvents" -> n, "MaxVertices" -> v\|>` | `system.evolve(max_events=n, max_vertices=v)` |
+| `"EventOrderingFunction" -> {"OldestEdge", ...}` | `event_ordering=["OldestEdge", ...]` |
+| `"FinalState"`, `"EventsCount"`, `"TerminationReason"` | `system.final_state`, `.events_count`, `.termination_reason` |
+| `"AllEventsList"` / `"AllExpressions"` | `system.events()` / `system.tokens()` |
+| `"CausalGraph"` / `"LayeredCausalGraph"` | `system.causal_graph_edges()` / `.causal_graph_plot()` |
+| `HypergraphPlot[state, VertexLabels -> Automatic]` | `sr.plot(state, labels=True)` |
+
+Rules can be strings (as above), structured
+(`sr.Rule([["x", "y"]], [["x", "y"], ["y", "z"]])` — strings are variables,
+ints are concrete vertices), or lists of either. Type stubs ship with the
+wheel; the full contract is in [docs/python-api.md](docs/python-api.md).
+
+## How faithful is it?
+
+The engine is a port of SetReplace's C++ core (`libSetReplace`) with the
+Wolfram Language layer's semantics — same default event ordering, same
+generation bookkeeping, same fresh-vertex naming. It is verified three ways:
+unit tests of the matching semantics, test vectors lifted from SetReplace's
+own test suite (cited by file and line in
+[tests/wolfram_vectors.rs](tests/wolfram_vectors.rs)), and live cross-checks
+against SetReplace 0.3.196 under wolframscript — final states, per-event
+token traces, causal edge lists, every named event ordering, and termination
+reasons all agree exactly. The renderer's palette, vertex size, and arrowhead
+geometry are transcribed from SetReplace's style sources. Wolfram's render
+left, ours right, on identical data:
+
+<img src="docs/images/step10_wolfram_vs_rust.png" width="900"
+     alt="Wolfram's HypergraphPlot vs this package on the same 13-edge state">
+
+Scope today: single-history evolution (the default `WolframModel` behavior),
+all event orderings, step limits, full token/event history, causal graphs,
+state and causal-graph plots. Not yet: multiway systems and branchial
+graphs.
+
+## Using from Rust
+
+The engine (`setreplace`, zero dependencies, ~200k events/s on sparse
+models) and renderer (`setreplace-viz`) are ordinary Rust crates — see
+[docs/rust.md](docs/rust.md), [docs/engine.md](docs/engine.md), and
+[viz/README.md](viz/README.md).
+
+## Acknowledgments
+
+This is an independent reimplementation of the core of
+[SetReplace](https://github.com/maxitg/SetReplace) (MIT) by Max Piskunov and
+contributors, which defined these semantics and aesthetics; its test suite
+and style definitions made exactness possible. Not affiliated with the
+SetReplace project, the Wolfram Physics Project, or Wolfram Research.
+
+MIT licensed.

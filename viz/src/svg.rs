@@ -12,7 +12,7 @@ pub struct Svg {
 }
 
 fn fmt_coord(v: f64) -> String {
-    format!("{:.2}", v)
+    format!("{:.1}", v)
 }
 
 impl Svg {

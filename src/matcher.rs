@@ -16,7 +16,7 @@
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::atoms_index::AtomsIndex;
 use crate::error::Error;
@@ -119,7 +119,7 @@ pub(crate) struct Match {
 /// Vector comparison is lexicographic with a shorter prefix ordered first,
 /// matching `compareVectors` — i.e. Rust's `Ord` on `Vec`.
 struct QueueKey {
-    spec: Rc<[(OrdFn, bool)]>,
+    spec: Arc<[(OrdFn, bool)]>,
     rule: usize,
     inputs: Vec<TokenId>,
     sorted: Vec<TokenId>,
@@ -127,7 +127,7 @@ struct QueueKey {
 }
 
 impl QueueKey {
-    fn new(spec: Rc<[(OrdFn, bool)]>, m: &Match) -> Self {
+    fn new(spec: Arc<[(OrdFn, bool)]>, m: &Match) -> Self {
         let mut sorted = m.inputs.clone();
         sorted.sort_unstable();
         let mut rev_sorted = m.inputs.clone();
@@ -183,15 +183,15 @@ impl Eq for QueueKey {}
 /// `Bucket`).
 #[derive(Default)]
 struct Bucket {
-    items: Vec<Rc<Match>>,
-    positions: HashMap<Rc<Match>, usize>,
+    items: Vec<Arc<Match>>,
+    positions: HashMap<Arc<Match>, usize>,
 }
 
 pub(crate) struct Matcher {
-    spec: Rc<[(OrdFn, bool)]>,
+    spec: Arc<[(OrdFn, bool)]>,
     ends_with_any: bool,
     queue: BTreeMap<QueueKey, Bucket>,
-    token_to_matches: HashMap<TokenId, BTreeSet<Rc<Match>>>,
+    token_to_matches: HashMap<TokenId, BTreeSet<Arc<Match>>>,
     rng: Pcg32,
 }
 
@@ -199,7 +199,7 @@ impl Matcher {
     pub(crate) fn new(ordering: &[OrderingFunction], random_seed: u64) -> Self {
         let (spec, ends_with_any) = translate_spec(ordering);
         Matcher {
-            spec: Rc::from(spec),
+            spec: Arc::from(spec),
             ends_with_any,
             queue: BTreeMap::new(),
             token_to_matches: HashMap::new(),
@@ -284,7 +284,7 @@ impl Matcher {
     }
 
     fn insert_match(&mut self, m: Match) {
-        let rc = Rc::new(m);
+        let rc = Arc::new(m);
         let key = QueueKey::new(self.spec.clone(), &rc);
         let bucket = self.queue.entry(key).or_default();
         if bucket.positions.contains_key(&rc) {
@@ -301,7 +301,7 @@ impl Matcher {
     /// is canonical so the evolution stays deterministic (bucket-internal
     /// order is perturbed by deletions).
     pub(crate) fn remove_matches_involving_tokens(&mut self, ids: &[TokenId]) {
-        let mut to_delete: BTreeSet<Rc<Match>> = BTreeSet::new();
+        let mut to_delete: BTreeSet<Arc<Match>> = BTreeSet::new();
         for t in ids {
             if let Some(set) = self.token_to_matches.get(t) {
                 to_delete.extend(set.iter().cloned());
@@ -312,7 +312,7 @@ impl Matcher {
         }
     }
 
-    fn delete_match(&mut self, m: &Rc<Match>) {
+    fn delete_match(&mut self, m: &Arc<Match>) {
         let key = QueueKey::new(self.spec.clone(), m);
         if let Some(bucket) = self.queue.get_mut(&key) {
             if let Some(idx) = bucket.positions.remove(m) {

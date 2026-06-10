@@ -21,6 +21,9 @@ pub struct HypergraphPlotOptions {
     /// Target plot width in printer's points; the README figures use 478.
     /// Rendered at 2x for retina-quality rasters.
     pub target_width_pt: f64,
+    /// `"ArrowheadLength"`: `None` is Automatic (the style formula);
+    /// `Some(0.0)` draws undirected-looking lines.
+    pub arrowhead_length: Option<f64>,
 }
 
 impl Default for HypergraphPlotOptions {
@@ -29,6 +32,7 @@ impl Default for HypergraphPlotOptions {
             seed: 0,
             labels: None,
             target_width_pt: 478.0,
+            arrowhead_length: None,
         }
     }
 }
@@ -73,7 +77,9 @@ pub fn hypergraph_plot_svg(edges: &[Vec<Atom>], opts: &HypergraphPlotOptions) ->
     } else {
         vertex_bbox.width().max(vertex_bbox.height())
     };
-    let arrowhead_len = style::arrowhead_length(plot_range);
+    let arrowhead_len = opts
+        .arrowhead_length
+        .unwrap_or_else(|| style::arrowhead_length(plot_range));
     let vertex_size = style::VERTEX_SIZE;
 
     // Count parallel drawn segments (same unordered vertex pair) so they can
