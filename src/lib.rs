@@ -1,6 +1,6 @@
 //! # setreplace
 //!
-//! A Rust reimplementation of the core of Wolfram's
+//! A Rust reimplementation of the core of Max Piskunov's
 //! [SetReplace](https://github.com/maxitg/SetReplace): single-history
 //! hypergraph substitution systems (Wolfram model evolution).
 //!

@@ -1,7 +1,7 @@
 # setreplace
 
 **Wolfram models in Python** — hypergraph substitution systems with the exact
-semantics of Wolfram's [SetReplace](https://github.com/maxitg/SetReplace),
+semantics of Max Piskunov's [SetReplace](https://github.com/maxitg/SetReplace),
 plus `HypergraphPlot`-style rendering, powered by a Rust engine. No Wolfram
 Language license, no graphviz, no native dependencies to install.
 

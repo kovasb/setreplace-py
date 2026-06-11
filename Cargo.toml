@@ -2,7 +2,7 @@
 name = "setreplace"
 version = "0.1.0"
 edition = "2021"
-description = "Rust reimplementation of the core hypergraph substitution engine of Wolfram's SetReplace (Wolfram model evolution)"
+description = "Rust reimplementation of the core hypergraph substitution engine of Max Piskunov's SetReplace (Wolfram model evolution)"
 license = "MIT"
 
 [dependencies]
